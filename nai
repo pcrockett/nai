@@ -66,15 +66,29 @@ def main [
             { component: "total", value: null, time: $total_time }
         ]
         | each {|x|
-            { component: $x.component, value: $x.value, time: ($x.time | into hours mins) }
+            { component: $x.component, value: $x.value, time: ($x.time | format hours mins) }
         }
         | table --index false
     )
 }
 
+# calculate a penalty ratio depending on the pre-penalty duration of your hike
 def endurance_penalty_ratio [] {
     let duration_before_penalty = $in
     let hours = $duration_before_penalty | into hours
+
+    # it's probably a good idea to plot this on a graphing calculator in order to understand it.
+    #
+    # i came up with it like this:
+    #
+    # * i know personally any hike i take over 5 hours long acquires about a 13% time penalty on top
+    #   of Naismith's Rule
+    # * i plotted a few X/Y points in a spreadsheet estimating what i think the time penalty should
+    #   be, where X is hours (ex: 5) and Y is a ratio (ex: 0.13)
+    # * i used the spreadsheet software's chart "trend line" feature to estimate the following
+    #   formula
+    #
+    # i cap the output of this function to be between 0 and 1
     let ratio = (0.0075 * ($hours ** 3)) - (0.145 * ($hours ** 2)) + (0.9475 * $hours) - 1.95
     match $ratio {
         $x if $x < 0 => { 0.0 }
@@ -96,7 +110,7 @@ def "into hours" [] {
 }
 
 # convert a duration into a string that represents the duration in hours and mins
-def "into hours mins" [] {
+def "format hours mins" [] {
     let hours = ($in | into hours)
     let hours_floor = ($hours | into int)
     let mins = ($hours - $hours_floor) * 60 | into int

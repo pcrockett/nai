@@ -5,6 +5,8 @@ estimation technique.
 
 ## Usage
 
+This is meant for day hikes.
+
 ```bash
 nai --length 5 --elevation 321
 # ╭───────────────────┬───────┬───────────╮
@@ -28,6 +30,9 @@ nai --length 19.4 --elevation 1676 --break 60
 # │ total             │        │ 8hr 36min │
 # ╰───────────────────┴────────┴───────────╯
 ```
+
+_The endurance penalty is based on total time hiking, and is hard-coded to estimate my own fitness
+level._
 
 ## Dependencies
 
