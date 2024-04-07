@@ -1,0 +1,109 @@
+#!/usr/bin/env nu
+
+# My take on Naismith's Rule https://en.wikipedia.org/wiki/Naismith's_rule
+def main [
+    --length(-l): float    # total length of the route in kilometers
+    --elevation(-e): float # total elevation change (up and down) in meters
+    --break(-b) = 0        # amount of minutes spent on major breaks (ex: lunch)
+] {
+    let total_length_km = match ($length) {
+        null => { input "Enter total length in km: " | into float }
+        _ => { $length }
+    }
+    if $total_length_km <= 0 {
+        error make { msg: "Total length must be greater than 0." }
+    }
+
+    let elevation_change_m = match ($elevation) {
+        null => { input "Enter total elevation change in m: " | into float }
+        _ => { $elevation }
+    }
+    if $elevation_change_m < 0 {
+        error make { msg: "Total elevation change must be greater than or equal to 0." }
+    }
+
+    if $break < 0 {
+        error make { msg: "Total break time must be greater than or equal to 0." }
+    }
+
+    let length_duration = (
+        ($total_length_km / 5.0 * 60)
+        | into int
+        | into duration --unit min
+    )
+
+    let elevation_duration = (
+        ($elevation_change_m / 10.0)
+        | into int
+        | into duration --unit min
+    )
+
+    let components = [
+        { component: "length", value: $"($total_length_km)km", time: $length_duration }
+        { component: "elevation change", value: $"($elevation_change_m)m", time: $elevation_duration }
+    ]
+
+    let duration_before_penalty = (
+        $components | reduce --fold (0 | into duration) {|it, acc| $it.time + $acc }
+    )
+
+    let components = $components | append [
+        {
+            component: "endurance penalty",
+            value: ($duration_before_penalty | endurance_penalty_ratio | format percentage),
+            time: ($duration_before_penalty | endurance_penalty)
+        }
+        { component: "breaks", value: null, time: ($break | into duration --unit min) }
+    ]
+
+    let total_time = (
+        $components | reduce --fold (0 | into duration) {|it, acc| $it.time + $acc }
+    )
+
+    (
+        $components
+        | append [
+            { component: "total", value: null, time: $total_time }
+        ]
+        | each {|x|
+            { component: $x.component, value: $x.value, time: ($x.time | into hours mins) }
+        }
+        | table --index false
+    )
+}
+
+def endurance_penalty_ratio [] {
+    let duration_before_penalty = $in
+    let hours = $duration_before_penalty | into hours
+    let ratio = (0.0075 * ($hours ** 3)) - (0.145 * ($hours ** 2)) + (0.9475 * $hours) - 1.95
+    match $ratio {
+        $x if $x < 0 => { 0.0 }
+        $x if $x > 1 => { 1.0 }
+        $x => { $x }
+    }
+}
+
+# add additional time penalty the longer your hike lasts
+def endurance_penalty [] {
+    let duration_before_penalty = $in
+    let ratio = $duration_before_penalty | endurance_penalty_ratio
+    $ratio * $duration_before_penalty
+}
+
+# convert a duration to a float that represents the duration in hours
+def "into hours" [] {
+    ($in | into int) / 1_000_000_000 / 60 / 60
+}
+
+# convert a duration into a string that represents the duration in hours and mins
+def "into hours mins" [] {
+    let hours = ($in | into hours)
+    let hours_floor = ($hours | into int)
+    let mins = ($hours - $hours_floor) * 60 | into int
+    $"($hours_floor)hr ($mins)min"
+}
+
+# convert a float to a percent string
+def "format percentage" [] {
+    ($in * 100.0 | into string --decimals 1) + "%"
+}
