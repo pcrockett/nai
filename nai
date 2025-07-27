@@ -1,11 +1,18 @@
 #!/usr/bin/env nu
 
+const NAI_VERSION = "0.1.0"
+
 # My take on Naismith's Rule https://en.wikipedia.org/wiki/Naismith's_rule
 def main [
     --length(-l): float    # total length of the route in kilometers
     --elevation(-e): float # total elevation change (up and down) in meters
     --break(-b) = 0        # amount of minutes spent on major breaks (ex: lunch)
+    --version              # show version information
 ] {
+    if ($version) {
+        $NAI_VERSION | print
+        return
+    }
     let total_length_km = match ($length) {
         null => { input "Enter total length in km: " | into float }
         _ => { $length }
